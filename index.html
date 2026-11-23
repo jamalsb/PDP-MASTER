@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101827">
+  <meta name="description" content="PDF Master is a simple, private PDF toolkit. Merge PDF files directly in your browser.">
+  <title>PDF Master | Simple PDF Tools</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="PDF Master home"><span class="brand-mark">P</span> PDF Master</a>
+    <span class="privacy-note"><span class="status-dot"></span> Files stay on your device</span>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow">YOUR EVERYDAY PDF TOOLKIT</p>
+      <h1>PDF work, made <span>simple.</span></h1>
+      <p class="hero-copy">Useful PDF tools in one place. Start by combining multiple PDF files into one document.</p>
+    </section>
+
+    <section class="tool-card" aria-labelledby="merge-title">
+      <div class="tool-heading">
+        <div class="tool-icon" aria-hidden="true">＋</div>
+        <div>
+          <p class="eyebrow">PDF TOOL 01</p>
+          <h2 id="merge-title">Merge PDF files</h2>
+          <p class="muted">Combine multiple PDFs into one file in your chosen order.</p>
+        </div>
+      </div>
+
+      <label class="drop-zone" id="drop-zone" for="pdf-files">
+        <span class="upload-icon" aria-hidden="true">↑</span>
+        <strong>Choose PDF files</strong>
+        <span class="muted">or drag and drop them here</span>
+        <span class="file-hint">PDF files only</span>
+      </label>
+      <input id="pdf-files" type="file" accept="application/pdf,.pdf" multiple hidden>
+
+      <div id="file-area" class="file-area" hidden>
+        <div class="file-area-heading"><strong>Selected files</strong><span id="file-count" class="muted"></span></div>
+        <ol id="file-list" class="file-list"></ol>
+      </div>
+
+      <div class="actions">
+        <button id="merge-button" class="primary-button" type="button" disabled>Merge PDFs</button>
+        <button id="clear-button" class="secondary-button" type="button" disabled>Clear files</button>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite">Select at least two PDF files to get started.</p>
+    </section>
+
+    <section class="privacy-card">
+      <span class="lock-icon" aria-hidden="true">▣</span>
+      <div><strong>Privacy comes first</strong><p class="muted">The merge happens locally in your browser. Your selected PDF files are not uploaded to our server.</p></div>
+    </section>
+  </main>
+
+  <footer><span>© <span id="year"></span> PDF Master</span><span>Simple tools. More coming soon.</span></footer>
+</body>
+</html>
