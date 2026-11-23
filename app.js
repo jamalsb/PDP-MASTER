@@ -86,6 +86,6 @@ runButton.addEventListener("click",async()=>{
  runButton.disabled=true;clearButton.disabled=true;setStatus("Processing your files…");
  try{if(currentTool==="merge")await mergePdfs();else if(currentTool==="split")await splitPdf();else if(currentTool==="rotate")await rotatePdf();else if(currentTool==="compress")await optimizePdf();else if(currentTool==="to-images")await pdfToImages();else await imagesToPdf();setStatus("Done! Your file has been prepared and downloaded.","success");}
  catch(err){console.error(err);setStatus(err.message||"Could not process this file. It may be damaged, encrypted or unsupported.","error");}
- finally{renderFiles();}
+ finally{const enough=(currentTool==="merge"||currentTool==="from-images")?selectedFiles.length>=2:selectedFiles.length===1;runButton.disabled=!enough;clearButton.disabled=!selectedFiles.length;}
 });
 setTool("merge");
