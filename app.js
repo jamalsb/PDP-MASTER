@@ -15,7 +15,7 @@ const config={
  merge:{title:"Merge PDF files",desc:"Combine multiple PDFs into one document in your chosen order.",hint:"Select two or more PDF files",accept:"application/pdf,.pdf",multiple:true,button:"Merge PDFs"},
  split:{title:"Split PDF pages",desc:"Save selected pages as a separate PDF. Use ranges such as 1-3, 5, 8-10.",hint:"Select one PDF file",accept:"application/pdf,.pdf",multiple:false,button:"Split PDF"},
  rotate:{title:"Rotate PDF pages",desc:"Rotate every page in your PDF by 90, 180 or 270 degrees.",hint:"Select one PDF file",accept:"application/pdf,.pdf",multiple:false,button:"Rotate PDF"},
- compress:{title:"Compress PDF",desc:"Re-save the PDF in an optimized structure. This may not reduce every file's size.",hint:"Select one PDF file",accept:"application/pdf,.pdf",multiple:false,button:"Optimize PDF"},
+ compress:{title:"Compress PDF",desc:"Try lossless PDF structure optimization and keep the original if the result is not smaller.",hint:"Select one PDF file",accept:"application/pdf,.pdf",multiple:false,button:"Optimize PDF"},
  "to-images":{title:"PDF to Images",desc:"Convert each PDF page into a PNG image and download them in a ZIP file.",hint:"Select one PDF file",accept:"application/pdf,.pdf",multiple:false,button:"Convert to Images"},
  "from-images":{title:"Images to PDF",desc:"Combine JPG and PNG images into one PDF document.",hint:"Select one or more images",accept:"image/png,image/jpeg,.png,.jpg,.jpeg",multiple:true,button:"Create PDF"}
 };
@@ -38,7 +38,7 @@ function renderOptions(){
  if(currentTool==="split"){const wrap=document.createElement("div");wrap.className="option-field";const label=document.createElement("label");label.htmlFor="page-ranges";label.textContent="Pages to extract (example: 1-3, 5, 8-10)";const field=document.createElement("input");field.id="page-ranges";field.placeholder="1-3, 5";field.value="1";wrap.append(label,field);area.append(wrap);}
  if(currentTool==="rotate")addOption("Rotation angle","rotation-angle",["90","180","270"],["90° clockwise","180°","270° clockwise"]);
  if(currentTool==="to-images")addOption("Image quality","image-scale",["1","1.5","2"],["Standard","High","Very high"]);
- if(currentTool==="compress"){const p=document.createElement("p");p.className="muted";p.textContent="Note: this optimizer re-saves the PDF. Scanned images and some PDFs may not become smaller.";area.append(p);}
+ if(currentTool==="compress"){const p=document.createElement("p");p.className="muted";p.textContent="This performs lossless PDF structure optimization. It does not downsample or recompress embedded images, so image-heavy PDFs may not get smaller. If the result is not smaller, the original file is downloaded instead.";area.append(p);}
 }
 function setTool(tool){
  currentTool=tool;const c=config[tool];selectedFiles.length=0;input.value="";
@@ -73,7 +73,21 @@ function parseRanges(value,total){
 async function mergePdfs(){const out=await PDFLib.PDFDocument.create();for(let i=0;i<selectedFiles.length;i++){setStatus("Adding PDF "+(i+1)+" of "+selectedFiles.length+"…");const src=await readPdf(selectedFiles[i]);(await out.copyPages(src,src.getPageIndices())).forEach(p=>out.addPage(p));}await saveDownload(await out.save(),"pdf-master-merged.pdf");}
 async function splitPdf(){const src=await readPdf(selectedFiles[0]);const indexes=parseRanges(document.getElementById("page-ranges").value,src.getPageCount());const out=await PDFLib.PDFDocument.create();(await out.copyPages(src,indexes)).forEach(p=>out.addPage(p));await saveDownload(await out.save(),"pdf-master-split.pdf");}
 async function rotatePdf(){const pdf=await readPdf(selectedFiles[0]);const deg=Number(document.getElementById("rotation-angle").value);pdf.getPages().forEach(p=>p.setRotation(PDFLib.degrees((p.getRotation().angle+deg)%360)));await saveDownload(await pdf.save(),"pdf-master-rotated.pdf");}
-async function optimizePdf(){const src=await readPdf(selectedFiles[0]);const out=await PDFLib.PDFDocument.create();(await out.copyPages(src,src.getPageIndices())).forEach(p=>out.addPage(p));await saveDownload(await out.save({useObjectStreams:true}),"pdf-master-optimized.pdf");}
+async function optimizePdf(){
+ const original=selectedFiles[0];
+ const src=await readPdf(original);
+ const out=await PDFLib.PDFDocument.create();
+ (await out.copyPages(src,src.getPageIndices())).forEach(p=>out.addPage(p));
+ const optimized=await out.save({useObjectStreams:true});
+ if(optimized.byteLength>=original.size){
+  await saveDownload(await original.arrayBuffer(),original.name);
+  return "No smaller result was found. Your original PDF ("+sizeText(original.size)+") was downloaded unchanged.";
+ }
+ const saved=original.size-optimized.byteLength;
+ const percent=((saved/original.size)*100).toFixed(1);
+ await saveDownload(optimized,"pdf-master-optimized.pdf");
+ return "Optimization complete. File reduced from "+sizeText(original.size)+" to "+sizeText(optimized.byteLength)+" (saved "+sizeText(saved)+", "+percent+"%).";
+}
 async function pdfToImages(){
  if(!window.pdfjsLib||!window.JSZip)throw Error("A conversion library did not load. Check your internet connection and refresh.");
  const doc=await pdfjsLib.getDocument({data:new Uint8Array(await selectedFiles[0].arrayBuffer())}).promise;const zip=new JSZip();const scale=Number(document.getElementById("image-scale").value);
@@ -84,7 +98,16 @@ async function imagesToPdf(){const out=await PDFLib.PDFDocument.create();for(let
 runButton.addEventListener("click",async()=>{
  if(!window.PDFLib){setStatus("PDF library failed to load. Check internet and refresh.","error");return;}if(!selectedFiles.length)return;
  runButton.disabled=true;clearButton.disabled=true;setStatus("Processing your files…");
- try{if(currentTool==="merge")await mergePdfs();else if(currentTool==="split")await splitPdf();else if(currentTool==="rotate")await rotatePdf();else if(currentTool==="compress")await optimizePdf();else if(currentTool==="to-images")await pdfToImages();else await imagesToPdf();setStatus("Done! Your file has been prepared and downloaded.","success");}
+ try{
+  let completionMessage="";
+  if(currentTool==="merge")await mergePdfs();
+  else if(currentTool==="split")await splitPdf();
+  else if(currentTool==="rotate")await rotatePdf();
+  else if(currentTool==="compress")completionMessage=await optimizePdf();
+  else if(currentTool==="to-images")await pdfToImages();
+  else await imagesToPdf();
+  setStatus(completionMessage||"Done! Your file has been prepared and downloaded.","success");
+ }
  catch(err){console.error(err);setStatus(err.message||"Could not process this file. It may be damaged, encrypted or unsupported.","error");}
  finally{const enough=(currentTool==="merge"||currentTool==="from-images")?selectedFiles.length>=2:selectedFiles.length===1;runButton.disabled=!enough;clearButton.disabled=!selectedFiles.length;}
 });
