@@ -15,7 +15,7 @@ const config={
  merge:{title:"Merge PDF files",desc:"Combine multiple PDFs into one document in your chosen order.",hint:"Select two or more PDF files",accept:"application/pdf,.pdf",multiple:true,button:"Merge PDFs"},
  split:{title:"Split PDF pages",desc:"Save selected pages as a separate PDF. Use ranges such as 1-3, 5, 8-10.",hint:"Select one PDF file",accept:"application/pdf,.pdf",multiple:false,button:"Split PDF"},
  rotate:{title:"Rotate PDF pages",desc:"Rotate every page in your PDF by 90, 180 or 270 degrees.",hint:"Select one PDF file",accept:"application/pdf,.pdf",multiple:false,button:"Rotate PDF"},
- compress:{title:"Compress PDF",desc:"Reduce PDF size by rendering pages as compressed images. Visual layout is retained, but text will no longer be selectable or searchable.",hint:"Select one PDF file",accept:"application/pdf,.pdf",multiple:false,button:"Compress PDF"},
+ compress:{title:"Compress PDF",desc:"Reduce PDF file size with Ghostscript while keeping text searchable and selectable and preserving vector content where possible.",hint:"Select one PDF file",accept:"application/pdf,.pdf",multiple:false,button:"Compress PDF"},
  "to-images":{title:"PDF to Images",desc:"Convert each PDF page into a PNG image and download them in a ZIP file.",hint:"Select one PDF file",accept:"application/pdf,.pdf",multiple:false,button:"Convert to Images"},
  "from-images":{title:"Images to PDF",desc:"Combine JPG and PNG images into one PDF document.",hint:"Select one or more images",accept:"image/png,image/jpeg,.png,.jpg,.jpeg",multiple:true,button:"Create PDF"}
 };
@@ -38,7 +38,10 @@ function renderOptions(){
  if(currentTool==="split"){const wrap=document.createElement("div");wrap.className="option-field";const label=document.createElement("label");label.htmlFor="page-ranges";label.textContent="Pages to extract (example: 1-3, 5, 8-10)";const field=document.createElement("input");field.id="page-ranges";field.placeholder="1-3, 5";field.value="1";wrap.append(label,field);area.append(wrap);}
  if(currentTool==="rotate")addOption("Rotation angle","rotation-angle",["90","180","270"],["90° clockwise","180°","270° clockwise"]);
  if(currentTool==="to-images")addOption("Image quality","image-scale",["1","1.5","2"],["Standard","High","Very high"]);
- if(currentTool==="compress"){addOption("Compression level","compression-level",["small","balanced","clear"],["Smaller file (lower quality)","Balanced (recommended)","Clearer pages (larger file)"]);const p=document.createElement("p");p.className="muted";p.textContent="Important: real compression converts each page into a JPEG image. The pages should look similar, but text will no longer be selectable or searchable, and forms, links and bookmarks may not be preserved. If the compressed file is not smaller, the original PDF is downloaded unchanged.";area.append(p);}
+ if(currentTool==="compress"){
+  addOption("Compression level","compression-level",["maximum","recommended","high"],["Maximum reduction (smaller file)","Recommended balance","High quality (less reduction)"]);
+  const p=document.createElement("p");p.className="muted";p.textContent="The compressor creates a real PDF, not a page-by-page image PDF. Text usually remains selectable and searchable, and vector elements are retained where possible. Embedded photos or scanned page images may be downsampled. Results depend on the original PDF; already-compressed books may shrink only a little.";area.append(p);
+ }
 }
 function setTool(tool){
  currentTool=tool;const c=config[tool];selectedFiles.length=0;input.value="";
@@ -74,40 +77,36 @@ async function mergePdfs(){const out=await PDFLib.PDFDocument.create();for(let i
 async function splitPdf(){const src=await readPdf(selectedFiles[0]);const indexes=parseRanges(document.getElementById("page-ranges").value,src.getPageCount());const out=await PDFLib.PDFDocument.create();(await out.copyPages(src,indexes)).forEach(p=>out.addPage(p));await saveDownload(await out.save(),"pdf-master-split.pdf");}
 async function rotatePdf(){const pdf=await readPdf(selectedFiles[0]);const deg=Number(document.getElementById("rotation-angle").value);pdf.getPages().forEach(p=>p.setRotation(PDFLib.degrees((p.getRotation().angle+deg)%360)));await saveDownload(await pdf.save(),"pdf-master-rotated.pdf");}
 async function optimizePdf(){
- if(!window.pdfjsLib)throw Error("The PDF rendering library did not load. Refresh the page and try again.");
+ if(!window.WasmZooGhostscript)throw Error("The PDF compression engine did not load. Check your internet connection and refresh the page.");
  const original=selectedFiles[0];
  const level=document.getElementById("compression-level").value;
- const settings={small:{scale:1,quality:0.55},balanced:{scale:1.25,quality:0.70},clear:{scale:1.5,quality:0.82}}[level]||{scale:1.25,quality:0.70};
- const pdfjs=await pdfjsLib.getDocument({data:new Uint8Array(await original.arrayBuffer())}).promise;
- const out=await PDFLib.PDFDocument.create();
- for(let n=1;n<=pdfjs.numPages;n++){
-  setStatus("Compressing page "+n+" of "+pdfjs.numPages+"…");
-  const page=await pdfjs.getPage(n);
-  const viewport=page.getViewport({scale:settings.scale});
-  const canvas=document.createElement("canvas");
-  canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
-  const ctx=canvas.getContext("2d",{alpha:false});
-  if(!ctx)throw Error("Could not create an image canvas for page "+n+".");
-  ctx.fillStyle="#ffffff";ctx.fillRect(0,0,canvas.width,canvas.height);
-  await page.render({canvasContext:ctx,viewport,background:"rgb(255,255,255)"}).promise;
-  const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",settings.quality));
-  if(!blob)throw Error("Could not compress page "+n+".");
-  const image=await out.embedJpg(await blob.arrayBuffer());
-  const width=viewport.width/settings.scale,height=viewport.height/settings.scale;
-  const newPage=out.addPage([width,height]);
-  newPage.drawImage(image,{x:0,y:0,width,height});
-  canvas.width=1;canvas.height=1;
-  page.cleanup();
- }
- const compressed=await out.save({useObjectStreams:true});
- if(compressed.byteLength>=original.size){
-  await saveDownload(await original.arrayBuffer(),original.name);
-  return "Compression did not make the PDF smaller. Your original file ("+sizeText(original.size)+") was downloaded unchanged.";
- }
- const saved=original.size-compressed.byteLength;
- const percent=((saved/original.size)*100).toFixed(1);
- await saveDownload(compressed,"pdf-master-compressed.pdf");
- return "Compression complete: "+sizeText(original.size)+" reduced to "+sizeText(compressed.byteLength)+" (saved "+sizeText(saved)+", "+percent+"%). Pages are image-based, so text is not selectable or searchable.";
+ const presets={maximum:{pdf:"/screen",dpi:96,jpeg:55},recommended:{pdf:"/ebook",dpi:150,jpeg:72},high:{pdf:"/printer",dpi:300,jpeg:85}};
+ const settings=presets[level]||presets.recommended;
+ setStatus("Loading the PDF compression engine. The first use may take a little longer…");
+ // The classic wrapper and both WASM runtime assets are served from this exact package directory.
+ const gs=WasmZooGhostscript.loadHosted({baseUrl:"https://cdn.jsdelivr.net/npm/@wasm-zoo/ghostscript@0.7.2/"});
+ try{
+  const inputBytes=new Uint8Array(await original.arrayBuffer());
+  setStatus("Compressing PDF with Ghostscript. Please keep this tab open…");
+  const result=await gs.exec([
+   "-dSAFER","-dBATCH","-dNOPAUSE","-dQUIET",
+   "-sDEVICE=pdfwrite","-dCompatibilityLevel=1.7",
+   "-dPDFSETTINGS="+settings.pdf,
+   "-dDetectDuplicateImages=true","-dCompressFonts=true","-dSubsetFonts=true",
+   "-dDownsampleColorImages=true","-dColorImageDownsampleType=/Bicubic","-dColorImageResolution="+settings.dpi,
+   "-dDownsampleGrayImages=true","-dGrayImageDownsampleType=/Bicubic","-dGrayImageResolution="+settings.dpi,
+   "-dDownsampleMonoImages=true","-dMonoImageResolution=300",
+   "-dJPEGQ="+settings.jpeg,
+   "-sOutputFile=/output/compressed.pdf","/input/source.pdf"
+  ],{files:[{name:"/input/source.pdf",data:inputBytes}],dirs:["/input","/output"],outputs:["/output/compressed.pdf"]});
+  const output=result.files.find(f=>f.name==="/output/compressed.pdf");
+  if(!output||!output.data||!output.data.byteLength)throw Error("Ghostscript could not create the compressed PDF. The file may be damaged, encrypted or use unsupported features.");
+  const compressed=output.data;
+  if(compressed.byteLength>=original.size){await saveDownload(await original.arrayBuffer(),original.name);return "This PDF was already compact or could not be reduced at this setting. The original file ("+sizeText(original.size)+") was downloaded unchanged.";}
+  const saved=original.size-compressed.byteLength;const percent=((saved/original.size)*100).toFixed(1);const base=original.name.replace(/\.pdf$/i,"");
+  await saveDownload(compressed,base+"-compressed.pdf");
+  return "Compression complete: "+sizeText(original.size)+" → "+sizeText(compressed.byteLength)+" (saved "+sizeText(saved)+", "+percent+"%). Text and vector content are kept where Ghostscript can preserve them.";
+ }finally{gs.dispose();}
 }
 async function pdfToImages(){
  if(!window.pdfjsLib||!window.JSZip)throw Error("A conversion library did not load. Check your internet connection and refresh.");
