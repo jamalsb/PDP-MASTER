@@ -80,14 +80,11 @@ async function optimizePdf(){
  if(!window.WasmZooGhostscript)throw Error("The PDF compression engine did not load. Check your internet connection and refresh the page.");
  const original=selectedFiles[0];
  const level=document.getElementById("compression-level").value;
- const presets={
-  maximum:{pdf:"/screen",dpi:96,jpeg:55},
-  recommended:{pdf:"/ebook",dpi:150,jpeg:72},
-  high:{pdf:"/printer",dpi:300,jpeg:85}
- };
+ const presets={maximum:{pdf:"/screen",dpi:96,jpeg:55},recommended:{pdf:"/ebook",dpi:150,jpeg:72},high:{pdf:"/printer",dpi:300,jpeg:85}};
  const settings=presets[level]||presets.recommended;
  setStatus("Loading the PDF compression engine. The first use may take a little longer…");
- const gs=window.WasmZooGhostscript.loadHosted({baseUrl:"https://cdn.jsdelivr.net/npm/@wasm-zoo/ghostscript@0.7.2/"});
+ // The classic wrapper and both WASM runtime assets are served from this exact package directory.
+ const gs=WasmZooGhostscript.loadHosted({baseUrl:"https://cdn.jsdelivr.net/npm/@wasm-zoo/ghostscript@0.7.2/"});
  try{
   const inputBytes=new Uint8Array(await original.arrayBuffer());
   setStatus("Compressing PDF with Ghostscript. Please keep this tab open…");
@@ -101,21 +98,12 @@ async function optimizePdf(){
    "-dDownsampleMonoImages=true","-dMonoImageResolution=300",
    "-dJPEGQ="+settings.jpeg,
    "-sOutputFile=/output/compressed.pdf","/input/source.pdf"
-  ],{
-   files:[{name:"/input/source.pdf",data:inputBytes}],
-   dirs:["/input","/output"],
-   outputs:["/output/compressed.pdf"]
-  });
+  ],{files:[{name:"/input/source.pdf",data:inputBytes}],dirs:["/input","/output"],outputs:["/output/compressed.pdf"]});
   const output=result.files.find(f=>f.name==="/output/compressed.pdf");
   if(!output||!output.data||!output.data.byteLength)throw Error("Ghostscript could not create the compressed PDF. The file may be damaged, encrypted or use unsupported features.");
   const compressed=output.data;
-  if(compressed.byteLength>=original.size){
-   await saveDownload(await original.arrayBuffer(),original.name);
-   return "This PDF was already compact or could not be reduced at this setting. The original file ("+sizeText(original.size)+") was downloaded unchanged.";
-  }
-  const saved=original.size-compressed.byteLength;
-  const percent=((saved/original.size)*100).toFixed(1);
-  const base=original.name.replace(/\.pdf$/i,"");
+  if(compressed.byteLength>=original.size){await saveDownload(await original.arrayBuffer(),original.name);return "This PDF was already compact or could not be reduced at this setting. The original file ("+sizeText(original.size)+") was downloaded unchanged.";}
+  const saved=original.size-compressed.byteLength;const percent=((saved/original.size)*100).toFixed(1);const base=original.name.replace(/\.pdf$/i,"");
   await saveDownload(compressed,base+"-compressed.pdf");
   return "Compression complete: "+sizeText(original.size)+" → "+sizeText(compressed.byteLength)+" (saved "+sizeText(saved)+", "+percent+"%). Text and vector content are kept where Ghostscript can preserve them.";
  }finally{gs.dispose();}
