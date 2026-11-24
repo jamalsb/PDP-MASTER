@@ -1,0 +1,41 @@
+name: PDF Master checks
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - feature/ghostscript-pdf-compressor
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate PDF Master files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check JavaScript syntax
+        run: node --check app.js
+
+      - name: Check required app files
+        run: |
+          test -f index.html
+          test -f app.js
+          test -f styles.css
+
+      - name: Check all six tool tabs exist
+        run: |
+          for tool in merge split rotate compress to-images from-images; do
+            grep -Fq "data-tool=\"$tool\"" index.html
+          done
