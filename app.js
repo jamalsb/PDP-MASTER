@@ -92,6 +92,92 @@ function parseRanges(value,total){
 async function mergePdfs(){const out=await PDFLib.PDFDocument.create();for(let i=0;i<selectedFiles.length;i++){setStatus("Adding PDF "+(i+1)+" of "+selectedFiles.length+"…");const src=await readPdf(selectedFiles[i]);(await out.copyPages(src,src.getPageIndices())).forEach(p=>out.addPage(p));}await saveDownload(await out.save(),"pdf-master-merged.pdf");}
 async function splitPdf(){const src=await readPdf(selectedFiles[0]);const indexes=parseRanges(document.getElementById("page-ranges").value,src.getPageCount());const out=await PDFLib.PDFDocument.create();(await out.copyPages(src,indexes)).forEach(p=>out.addPage(p));await saveDownload(await out.save(),"pdf-master-split.pdf");}
 async function rotatePdf(){const pdf=await readPdf(selectedFiles[0]);const deg=Number(document.getElementById("rotation-angle").value);pdf.getPages().forEach(p=>p.setRotation(PDFLib.degrees((p.getRotation().angle+deg)%360)));await saveDownload(await pdf.save(),"pdf-master-rotated.pdf");}
+async function renderPageMain(pdfjs,n,settings){
+ const page=await pdfjs.getPage(n);let canvas=null;
+ try{
+  const viewport=page.getViewport({scale:settings.scale});
+  canvas=document.createElement("canvas");canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
+  const ctx=canvas.getContext("2d",{alpha:false});
+  if(!ctx)throw Error("Could not create an image canvas for page "+n+".");
+  ctx.fillStyle="#ffffff";ctx.fillRect(0,0,canvas.width,canvas.height);
+  await page.render({canvasContext:ctx,viewport,background:"rgb(255,255,255)"}).promise;
+  const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",settings.quality));
+  if(!blob)throw Error("Could not compress page "+n+".");
+  return {n,blob,width:viewport.width/settings.scale,height:viewport.height/settings.scale};
+ }finally{if(canvas){canvas.width=1;canvas.height=1;}page.cleanup();}
+}
+const PDFJS_SRC="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",PDFJS_WORKER_SRC="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const compressWorkerSource=`
+let pdf=null;
+class OffFactory{create(w,h){const c=new OffscreenCanvas(Math.max(1,w),Math.max(1,h));return{canvas:c,context:c.getContext("2d")};}reset(cc,w,h){cc.canvas.width=w;cc.canvas.height=h;}destroy(cc){cc.canvas.width=0;cc.canvas.height=0;cc.canvas=null;cc.context=null;}}
+self.onmessage=async e=>{const m=e.data;
+ try{
+  if(m.type==="init"){
+   importScripts(m.pdfSrc);const lib=self.pdfjsLib;lib.GlobalWorkerOptions.workerSrc=m.workerSrc;
+   const ownerDocument={fonts:self.fonts,createElement:n=>n==="canvas"?new OffscreenCanvas(1,1):null,documentElement:{getElementsByTagName:()=>[]}};
+   pdf=await lib.getDocument({data:m.data,canvasFactory:new OffFactory(),ownerDocument}).promise;
+   postMessage({type:"ready"});
+  }else if(m.type==="page"){
+   const page=await pdf.getPage(m.n);const vp=page.getViewport({scale:m.scale});
+   const canvas=new OffscreenCanvas(Math.ceil(vp.width),Math.ceil(vp.height));const ctx=canvas.getContext("2d",{alpha:false});
+   ctx.fillStyle="#ffffff";ctx.fillRect(0,0,canvas.width,canvas.height);
+   await page.render({canvasContext:ctx,viewport:vp,background:"rgb(255,255,255)"}).promise;
+   const blob=await canvas.convertToBlob({type:"image/jpeg",quality:m.quality});const buf=await blob.arrayBuffer();page.cleanup();
+   postMessage({type:"done",n:m.n,buf,width:vp.width/m.scale,height:vp.height/m.scale},[buf]);
+  }
+ }catch(err){postMessage({type:"error",n:m.n,message:String(err&&err.message||err)});}
+};`;
+function callWorker(w,msg,ms){
+ return new Promise((resolve,reject)=>{
+  const timer=setTimeout(()=>{w.pending=null;reject(Error("Worker timed out."));},ms);
+  w.pending={resolve:d=>{clearTimeout(timer);resolve(d);},reject:e=>{clearTimeout(timer);reject(e);}};
+  w.postMessage(msg);
+ });
+}
+async function thumbData(blob){
+ const bmp=await createImageBitmap(blob);const c=document.createElement("canvas");c.width=c.height=48;
+ const x=c.getContext("2d",{willReadFrequently:true});x.fillStyle="#fff";x.fillRect(0,0,48,48);x.drawImage(bmp,0,0,48,48);if(bmp.close)bmp.close();
+ return x.getImageData(0,0,48,48).data;
+}
+async function compressParallel(pdfjs,original,settings,total){
+ const cores=Math.min(3,(navigator.hardwareConcurrency||2)-1);
+ if(total<3||cores<2||typeof Worker==="undefined"||typeof OffscreenCanvas==="undefined"||typeof createImageBitmap==="undefined")return null;
+ const count=Math.min(cores,total-1),workers=[];let url="";
+ try{
+  setStatus("Preparing faster compression…");
+  url=URL.createObjectURL(new Blob([compressWorkerSource],{type:"text/javascript"}));
+  const data=await original.arrayBuffer();
+  for(let i=0;i<count;i++){
+   const w=new Worker(url);w.pending=null;
+   w.onmessage=e=>{const p=w.pending;w.pending=null;if(!p)return;e.data.type==="error"?p.reject(Error(e.data.message)):p.resolve(e.data);};
+   w.onerror=e=>{const p=w.pending;w.pending=null;if(p)p.reject(Error(e.message||"Worker failed."));};
+   workers.push(w);
+  }
+  await Promise.all(workers.map(w=>callWorker(w,{type:"init",pdfSrc:PDFJS_SRC,workerSrc:PDFJS_WORKER_SRC,data:data.slice(0)},30000)));
+  // Safety check: page 1 rendered both ways must look the same, otherwise use the normal method.
+  const first=await renderPageMain(pdfjs,1,settings);
+  const probe=await callWorker(workers[0],{type:"page",n:1,scale:settings.scale,quality:settings.quality},60000);
+  if(Math.abs(probe.width-first.width)>1||Math.abs(probe.height-first.height)>1)return null;
+  const [t1,t2]=await Promise.all([thumbData(first.blob),thumbData(new Blob([probe.buf],{type:"image/jpeg"}))]);
+  let diff=0;for(let i=0;i<t1.length;i++)diff+=Math.abs(t1[i]-t2[i]);
+  if(diff/t1.length>10)return null;
+  const results=new Array(total);results[0]=first;let next=2,done=1;
+  setStatus("Compressing pages 1 of "+total+"…");
+  await Promise.all(workers.map(async w=>{
+   while(next<=total){
+    const n=next++;
+    const r=await callWorker(w,{type:"page",n,scale:settings.scale,quality:settings.quality},120000);
+    results[n-1]={n,blob:new Blob([r.buf],{type:"image/jpeg"}),width:r.width,height:r.height};
+    done++;setStatus("Compressing pages "+done+" of "+total+"…");
+   }
+  }));
+  return results;
+ }catch(err){
+  console.warn("Fast compression unavailable, using standard method.",err);return null;
+ }finally{
+  workers.forEach(w=>w.terminate());if(url)URL.revokeObjectURL(url);
+ }
+}
 async function optimizePdf(){
  if(!window.pdfjsLib)throw Error("The PDF rendering library did not load. Refresh the page and try again.");
  const original=selectedFiles[0];
@@ -99,35 +185,22 @@ async function optimizePdf(){
  const settings={small:{scale:1,quality:0.55},balanced:{scale:1.25,quality:0.70},clear:{scale:1.5,quality:0.82}}[level]||{scale:1.25,quality:0.70};
  const pdfjs=await pdfjsLib.getDocument({data:new Uint8Array(await original.arrayBuffer())}).promise;
  const out=await PDFLib.PDFDocument.create();
- const batchSize=3;
- for(let first=1;first<=pdfjs.numPages;first+=batchSize){
-  const last=Math.min(first+batchSize-1,pdfjs.numPages);
-  setStatus("Compressing pages "+first+"–"+last+" of "+pdfjs.numPages+"…");
-  const renderedBatch=await Promise.all(Array.from({length:last-first+1},async(_,index)=>{
-   const n=first+index;
-   const page=await pdfjs.getPage(n);
-   let canvas=null;
-   try{
-    const viewport=page.getViewport({scale:settings.scale});
-    canvas=document.createElement("canvas");
-    canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
-    const ctx=canvas.getContext("2d",{alpha:false});
-    if(!ctx)throw Error("Could not create an image canvas for page "+n+".");
-    ctx.fillStyle="#ffffff";ctx.fillRect(0,0,canvas.width,canvas.height);
-    await page.render({canvasContext:ctx,viewport,background:"rgb(255,255,255)"}).promise;
-    const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",settings.quality));
-    if(!blob)throw Error("Could not compress page "+n+".");
-    return {n,blob,width:viewport.width/settings.scale,height:viewport.height/settings.scale};
-   }finally{
-    if(canvas){canvas.width=1;canvas.height=1;}
-    page.cleanup();
-   }
-  }));
-  for(const item of renderedBatch){
-   const image=await out.embedJpg(await item.blob.arrayBuffer());
-   const newPage=out.addPage([item.width,item.height]);
-   newPage.drawImage(image,{x:0,y:0,width:item.width,height:item.height});
+ const total=pdfjs.numPages;
+ let rendered=await compressParallel(pdfjs,original,settings,total);
+ if(!rendered){
+  rendered=[];const batchSize=3;
+  for(let first=1;first<=total;first+=batchSize){
+   const last=Math.min(first+batchSize-1,total);
+   setStatus("Compressing pages "+first+"–"+last+" of "+total+"…");
+   const batch=await Promise.all(Array.from({length:last-first+1},(_,i)=>renderPageMain(pdfjs,first+i,settings)));
+   rendered.push(...batch);
   }
+ }
+ setStatus("Building compressed PDF…");
+ for(const item of rendered){
+  const image=await out.embedJpg(await item.blob.arrayBuffer());
+  const newPage=out.addPage([item.width,item.height]);
+  newPage.drawImage(image,{x:0,y:0,width:item.width,height:item.height});
  }
  const compressed=await out.save({useObjectStreams:true});
  if(compressed.byteLength>=original.size){
