@@ -52,6 +52,8 @@ function renderOptions(){
 function setTool(tool){
  currentTool=tool;const c=config[tool];selectedFiles.length=0;input.value="";
  tabs.forEach(t=>t.classList.toggle("active",t.dataset.tool===tool));
+ document.querySelectorAll(".tool-link").forEach(t=>t.classList.toggle("active",t.dataset.tool===tool));
+ const at=tabs.find(t=>t.dataset.tool===tool);if(at&&at.scrollIntoView)at.scrollIntoView({inline:"center",block:"nearest",behavior:"smooth"});
  document.getElementById("tool-title").textContent=c.title;document.getElementById("tool-description").textContent=c.desc;
  document.getElementById("tool-number").textContent="PDF TOOL "+String(tabs.findIndex(t=>t.dataset.tool===tool)+1).padStart(2,"0");
  document.getElementById("upload-title").textContent=c.multiple?"Choose files":"Choose a file";document.getElementById("file-hint").textContent=c.hint;
@@ -71,6 +73,14 @@ input.addEventListener("change",e=>{addFiles(e.target.files);input.value="";});
 ["dragleave","drop"].forEach(n=>dropZone.addEventListener(n,e=>{e.preventDefault();dropZone.classList.remove("dragging");}));
 dropZone.addEventListener("drop",e=>addFiles(e.dataTransfer.files));
 tabs.forEach(t=>t.addEventListener("click",()=>setTool(t.dataset.tool)));
+const shortDesc={merge:"Combine several PDFs into one",split:"Extract pages into a new PDF",rotate:"Turn pages 90°, 180° or 270°",compress:"Make your PDF file smaller","to-images":"Save each page as a PNG image","from-images":"Turn JPG and PNG into a PDF","page-numbers":"Add numbers to every page",watermark:"Stamp your own text on pages","delete-pages":"Remove pages you don't need",reorder:"Arrange pages in a new order","to-text":"Extract text into a TXT file"};
+const toolIcons={"merge":"＋","split":"✂","rotate":"↻","compress":"⇩","to-images":"▧","from-images":"▣","page-numbers":"№","watermark":"◆","delete-pages":"✕","reorder":"↕","to-text":"T"};
+const toolGrid=document.getElementById("tool-grid");
+tabs.forEach(t=>{const k=t.dataset.tool;const b=document.createElement("button");b.type="button";b.className="tool-link";b.dataset.tool=k;
+ const i=document.createElement("span");i.className="tool-link-icon";i.textContent=toolIcons[k];
+ const n=document.createElement("strong");n.textContent=t.textContent;
+ const d=document.createElement("span");d.className="muted";d.textContent=shortDesc[k];
+ b.append(i,n,d);b.addEventListener("click",()=>{setTool(k);document.getElementById("tool-card").scrollIntoView({behavior:"smooth",block:"start"});});toolGrid.append(b);});
 clearButton.addEventListener("click",()=>{selectedFiles.length=0;renderFiles();});
 async function readPdf(file){return PDFLib.PDFDocument.load(await file.arrayBuffer());}
 async function saveDownload(bytes,name,type="application/pdf"){const blob=new Blob([bytes],{type});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);}

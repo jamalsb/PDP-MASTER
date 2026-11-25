@@ -16,7 +16,8 @@
 <nav class="tool-nav" aria-label="PDF tools">
 <button class="tool-tab active" data-tool="merge">Merge</button><button class="tool-tab" data-tool="split">Split</button><button class="tool-tab" data-tool="rotate">Rotate</button><button class="tool-tab" data-tool="compress">Compress</button><button class="tool-tab" data-tool="to-images">PDF to Images</button><button class="tool-tab" data-tool="from-images">Images to PDF</button><button class="tool-tab" data-tool="page-numbers">Page Numbers</button><button class="tool-tab" data-tool="watermark">Watermark</button><button class="tool-tab" data-tool="delete-pages">Delete Pages</button><button class="tool-tab" data-tool="reorder">Reorder Pages</button><button class="tool-tab" data-tool="to-text">PDF to Text</button>
 </nav>
-<section class="tool-card">
+<a class="all-tools-link" href="#all-tools">All Tools ↓</a>
+<section class="tool-card" id="tool-card">
 <div class="tool-heading"><div class="tool-icon" id="tool-icon">＋</div><div><p class="eyebrow" id="tool-number">PDF TOOL 01</p><h2 id="tool-title">Merge PDF files</h2><p class="muted" id="tool-description">Combine multiple PDFs into one document in your chosen order.</p></div></div>
 <label class="drop-zone" id="drop-zone" for="file-input"><span class="upload-icon">↑</span><strong id="upload-title">Choose PDF files</strong><span class="muted">or drag and drop them here</span><span class="file-hint" id="file-hint">PDF files only</span></label>
 <input id="file-input" type="file" accept="application/pdf,.pdf" multiple hidden>
@@ -25,6 +26,7 @@
 <div class="actions"><button id="run-button" class="primary-button" type="button" disabled>Merge PDFs</button><button id="clear-button" class="secondary-button" type="button" disabled>Clear files</button></div>
 <p id="status" class="status" role="status" aria-live="polite">Select at least two PDF files to get started.</p>
 </section>
+<section class="all-tools" id="all-tools"><div class="all-tools-head"><p class="eyebrow">EVERYTHING IN ONE PLACE</p><h2>All Tools</h2><p class="muted">Tap any tool to open it.</p></div><div class="tool-grid" id="tool-grid"></div></section>
 <section class="privacy-card"><span class="lock-icon">▣</span><div><strong>Privacy comes first</strong><p class="muted">Your selected files are processed locally in your browser. They are not uploaded to our application server.</p></div></section>
 <section class="coming-note"><strong>More tools planned</strong><p class="muted">PDF to Word, Word to PDF, OCR and secure PDF protection are planned for later releases.</p></section>
 </main>
