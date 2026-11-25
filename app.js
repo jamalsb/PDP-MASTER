@@ -73,42 +73,123 @@ function parseRanges(value,total){
 async function mergePdfs(){const out=await PDFLib.PDFDocument.create();for(let i=0;i<selectedFiles.length;i++){setStatus("Adding PDF "+(i+1)+" of "+selectedFiles.length+"…");const src=await readPdf(selectedFiles[i]);(await out.copyPages(src,src.getPageIndices())).forEach(p=>out.addPage(p));}await saveDownload(await out.save(),"pdf-master-merged.pdf");}
 async function splitPdf(){const src=await readPdf(selectedFiles[0]);const indexes=parseRanges(document.getElementById("page-ranges").value,src.getPageCount());const out=await PDFLib.PDFDocument.create();(await out.copyPages(src,indexes)).forEach(p=>out.addPage(p));await saveDownload(await out.save(),"pdf-master-split.pdf");}
 async function rotatePdf(){const pdf=await readPdf(selectedFiles[0]);const deg=Number(document.getElementById("rotation-angle").value);pdf.getPages().forEach(p=>p.setRotation(PDFLib.degrees((p.getRotation().angle+deg)%360)));await saveDownload(await pdf.save(),"pdf-master-rotated.pdf");}
-async function optimizePdf(){
- if(!window.pdfjsLib)throw Error("The PDF rendering library did not load. Refresh the page and try again.");
- const original=selectedFiles[0];
- const level=document.getElementById("compression-level").value;
- const settings={small:{scale:1,quality:0.55},balanced:{scale:1.25,quality:0.70},clear:{scale:1.5,quality:0.82}}[level]||{scale:1.25,quality:0.70};
- const pdfjs=await pdfjsLib.getDocument({data:new Uint8Array(await original.arrayBuffer())}).promise;
- const out=await PDFLib.PDFDocument.create();
- for(let n=1;n<=pdfjs.numPages;n++){
-  setStatus("Compressing page "+n+" of "+pdfjs.numPages+"…");
-  const page=await pdfjs.getPage(n);
-  const viewport=page.getViewport({scale:settings.scale});
-  const canvas=document.createElement("canvas");
-  canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
-  const ctx=canvas.getContext("2d",{alpha:false});
-  if(!ctx)throw Error("Could not create an image canvas for page "+n+".");
-  ctx.fillStyle="#ffffff";ctx.fillRect(0,0,canvas.width,canvas.height);
-  await page.render({canvasContext:ctx,viewport,background:"rgb(255,255,255)"}).promise;
-  const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",settings.quality));
-  if(!blob)throw Error("Could not compress page "+n+".");
-  const image=await out.embedJpg(await blob.arrayBuffer());
-  const width=viewport.width/settings.scale,height=viewport.height/settings.scale;
-  const newPage=out.addPage([width,height]);
-  newPage.drawImage(image,{x:0,y:0,width,height});
-  canvas.width=1;canvas.height=1;
-  page.cleanup();
- }
- const compressed=await out.save({useObjectStreams:true});
- if(compressed.byteLength>=original.size){
-  await saveDownload(await original.arrayBuffer(),original.name);
-  return "Compression did not make the PDF smaller. Your original file ("+sizeText(original.size)+") was downloaded unchanged.";
- }
- const saved=original.size-compressed.byteLength;
- const percent=((saved/original.size)*100).toFixed(1);
- await saveDownload(compressed,"pdf-master-compressed.pdf");
- return "Compression complete: "+sizeText(original.size)+" reduced to "+sizeText(compressed.byteLength)+" (saved "+sizeText(saved)+", "+percent+"%). Pages are image-based, so text is not selectable or searchable.";
+function canvasToBlob(canvas,type,quality){return new Promise(resolve=>canvas.toBlob(resolve,type,quality));}
+/*
+ * Runs `worker(item, index)` over `items` with at most `limit` jobs in flight.
+ * Results keep the original order. Stops early on the first error.
+ */
+async function mapPool(items, limit, worker) {
+  const results = new Array(items.length);
+  let next = 0;
+  let failed = null;
+  async function lane() {
+    while (!failed && next < items.length) {
+      const index = next++;
+      try {
+        results[index] = await worker(items[index], index);
+      } catch (err) {
+        failed = failed || err;
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, lane));
+  if (failed) throw failed;
+  return results;
 }
+
+const MAX_RENDER_PIXELS = 6000000; // keeps very large pages from rendering slowly
+const COMPRESS_CONCURRENCY = 3;
+
+async function optimizePdf() {
+  if (!window.pdfjsLib) {
+    throw new Error("The PDF rendering library did not load. Refresh the page and try again.");
+  }
+  const started = performance.now();
+  const original = selectedFiles[0];
+  const level = document.getElementById("compression-level").value;
+  const settings =
+    {
+      small: { scale: 1, quality: 0.55 },
+      balanced: { scale: 1.25, quality: 0.7 },
+      clear: { scale: 1.5, quality: 0.82 },
+    }[level] || { scale: 1.25, quality: 0.7 };
+
+  // disableFontFace: draw glyphs directly instead of waiting for the browser
+  // to load each embedded font, which is slow and not needed for a one-off render.
+  const pdfjsDoc = await pdfjsLib.getDocument({
+    data: new Uint8Array(await original.arrayBuffer()),
+    disableFontFace: true,
+  }).promise;
+
+  try {
+    const total = pdfjsDoc.numPages;
+    let done = 0;
+    const pageNumbers = Array.from({ length: total }, (_, i) => i + 1);
+
+    const rendered = await mapPool(pageNumbers, COMPRESS_CONCURRENCY, async (n) => {
+      const page = await pdfjsDoc.getPage(n);
+      const base = page.getViewport({ scale: 1 });
+      let scale = settings.scale;
+      const pixels = base.width * base.height * scale * scale;
+      if (pixels > MAX_RENDER_PIXELS) scale = Math.sqrt(MAX_RENDER_PIXELS / (base.width * base.height));
+      const viewport = page.getViewport({ scale });
+
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      const ctx = canvas.getContext("2d", { alpha: false });
+      if (!ctx) throw new Error("Could not create an image canvas for page " + n + ".");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport, background: "rgb(255,255,255)" }).promise;
+
+      const blob = await canvasToBlob(canvas, "image/jpeg", settings.quality);
+      canvas.width = 1;
+      canvas.height = 1;
+      page.cleanup();
+      if (!blob) throw new Error("Could not compress page " + n + ".");
+
+      done++;
+      setStatus("Compressed " + done + " of " + total + " page(s)…");
+      return { bytes: await blob.arrayBuffer(), width: base.width, height: base.height };
+    });
+
+    const out = await PDFLib.PDFDocument.create();
+    for (const item of rendered) {
+      const image = await out.embedJpg(item.bytes);
+      out.addPage([item.width, item.height]).drawImage(image, { x: 0, y: 0, width: item.width, height: item.height });
+    }
+
+    const compressed = await out.save({ useObjectStreams: true });
+    console.info("Compress: " + total + " page(s) in " + ((performance.now() - started) / 1000).toFixed(1) + " s");
+
+    if (compressed.byteLength >= original.size) {
+      await saveDownload(await original.arrayBuffer(), original.name);
+      return (
+        "Compression did not make the PDF smaller. Your original file (" +
+        sizeText(original.size) +
+        ") was downloaded unchanged."
+      );
+    }
+    const saved = original.size - compressed.byteLength;
+    const percent = ((saved / original.size) * 100).toFixed(1);
+    await saveDownload(compressed, "pdf-master-compressed.pdf");
+    return (
+      "Compression complete: " +
+      sizeText(original.size) +
+      " reduced to " +
+      sizeText(compressed.byteLength) +
+      " (saved " +
+      sizeText(saved) +
+      ", " +
+      percent +
+      "%). Pages are image-based, so text is not selectable or searchable."
+    );
+  } finally {
+    pdfjsDoc.destroy();
+  }
+}
+
 async function pdfToImages(){
  if(!window.pdfjsLib||!window.JSZip)throw Error("A conversion library did not load. Check your internet connection and refresh.");
  const doc=await pdfjsLib.getDocument({data:new Uint8Array(await selectedFiles[0].arrayBuffer())}).promise;const zip=new JSZip();const scale=Number(document.getElementById("image-scale").value);
