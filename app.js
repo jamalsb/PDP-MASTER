@@ -80,24 +80,35 @@ async function optimizePdf(){
  const settings={small:{scale:1,quality:0.55},balanced:{scale:1.25,quality:0.70},clear:{scale:1.5,quality:0.82}}[level]||{scale:1.25,quality:0.70};
  const pdfjs=await pdfjsLib.getDocument({data:new Uint8Array(await original.arrayBuffer())}).promise;
  const out=await PDFLib.PDFDocument.create();
- for(let n=1;n<=pdfjs.numPages;n++){
-  setStatus("Compressing page "+n+" of "+pdfjs.numPages+"…");
-  const page=await pdfjs.getPage(n);
-  const viewport=page.getViewport({scale:settings.scale});
-  const canvas=document.createElement("canvas");
-  canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
-  const ctx=canvas.getContext("2d",{alpha:false});
-  if(!ctx)throw Error("Could not create an image canvas for page "+n+".");
-  ctx.fillStyle="#ffffff";ctx.fillRect(0,0,canvas.width,canvas.height);
-  await page.render({canvasContext:ctx,viewport,background:"rgb(255,255,255)"}).promise;
-  const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",settings.quality));
-  if(!blob)throw Error("Could not compress page "+n+".");
-  const image=await out.embedJpg(await blob.arrayBuffer());
-  const width=viewport.width/settings.scale,height=viewport.height/settings.scale;
-  const newPage=out.addPage([width,height]);
-  newPage.drawImage(image,{x:0,y:0,width,height});
-  canvas.width=1;canvas.height=1;
-  page.cleanup();
+ const batchSize=3;
+ for(let first=1;first<=pdfjs.numPages;first+=batchSize){
+  const last=Math.min(first+batchSize-1,pdfjs.numPages);
+  setStatus("Compressing pages "+first+"–"+last+" of "+pdfjs.numPages+"…");
+  const renderedBatch=await Promise.all(Array.from({length:last-first+1},async(_,index)=>{
+   const n=first+index;
+   const page=await pdfjs.getPage(n);
+   let canvas=null;
+   try{
+    const viewport=page.getViewport({scale:settings.scale});
+    canvas=document.createElement("canvas");
+    canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
+    const ctx=canvas.getContext("2d",{alpha:false});
+    if(!ctx)throw Error("Could not create an image canvas for page "+n+".");
+    ctx.fillStyle="#ffffff";ctx.fillRect(0,0,canvas.width,canvas.height);
+    await page.render({canvasContext:ctx,viewport,background:"rgb(255,255,255)"}).promise;
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",settings.quality));
+    if(!blob)throw Error("Could not compress page "+n+".");
+    return {n,blob,width:viewport.width/settings.scale,height:viewport.height/settings.scale};
+   }finally{
+    if(canvas){canvas.width=1;canvas.height=1;}
+    page.cleanup();
+   }
+  }));
+  for(const item of renderedBatch){
+   const image=await out.embedJpg(await item.blob.arrayBuffer());
+   const newPage=out.addPage([item.width,item.height]);
+   newPage.drawImage(image,{x:0,y:0,width:item.width,height:item.height});
+  }
  }
  const compressed=await out.save({useObjectStreams:true});
  if(compressed.byteLength>=original.size){
