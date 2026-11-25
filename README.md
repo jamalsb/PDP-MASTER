@@ -27,7 +27,7 @@ This is a static website and can be deployed using Cloudflare Pages by connectin
 
 ## Not available yet
 
-PDF to Word, Word to PDF, user accounts, subscriptions, and payment processing have not been implemented.
+PDF to Word, Word to PDF, OCR, encrypted PDF password protection, user accounts, subscriptions, and payment processing have not been implemented.
 
 ## Privacy note
 
