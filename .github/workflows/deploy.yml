@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: deploy-pdp-master
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -16,9 +20,11 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # Only the contents of public/ are published, so README.md, workflow
+      # files and other repository files are never served on the website.
       - name: Deploy static site to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --assets . --name pdp-master
+          command: deploy --assets public --name pdp-master
