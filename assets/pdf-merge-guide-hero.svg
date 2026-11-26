@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+<title id="title">Combine PDF files into one document</title>
+<desc id="desc">Three separate PDF documents flow through a glowing merge arrow into one neatly stacked PDF document.</desc>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#101827"/><stop offset=".55" stop-color="#142b50"/><stop offset="1" stop-color="#071426"/></linearGradient>
+  <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#dce8ff"/></linearGradient>
+  <linearGradient id="blue" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#38a8ff"/><stop offset="1" stop-color="#75d8ff"/></linearGradient>
+  <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffb52e"/><stop offset="1" stop-color="#ffe37c"/></linearGradient>
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feGaussianBlur in="SourceAlpha" stdDeviation="12"/><feOffset dy="12"/><feComponentTransfer><feFuncA type="linear" slope=".35"/></feComponentTransfer><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="13" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="1200" height="675" rx="28" fill="url(#bg)"/>
+<circle cx="930" cy="155" r="240" fill="#1c65ad" opacity=".10"/>
+<circle cx="230" cy="560" r="210" fill="#1677c8" opacity=".10"/>
+<g opacity=".22" stroke="#7dbdff" stroke-width="1"><path d="M0 545H1200"/><path d="M0 565H1200"/></g>
+<g filter="url(#shadow)">
+  <g transform="translate(112 92)">
+    <path d="M0 18Q0 0 18 0H140L190 50V188Q190 206 172 206H18Q0 206 0 188Z" fill="url(#paper)"/>
+    <path d="M140 0V32Q140 50 158 50H190" fill="#c8d9f7"/>
+    <rect x="30" y="105" width="110" height="9" rx="4.5" fill="#a8bad8"/><rect x="30" y="128" width="95" height="9" rx="4.5" fill="#a8bad8"/><rect x="30" y="151" width="78" height="9" rx="4.5" fill="#a8bad8"/>
+    <path d="M70 40C58 40 51 49 51 61C51 73 62 82 78 82C96 82 108 69 108 57C108 45 98 38 88 38" fill="none" stroke="#e64a55" stroke-width="9" stroke-linecap="round"/>
+    <text x="95" y="96" font-family="Arial,sans-serif" font-size="15" font-weight="700" text-anchor="middle" fill="#d43c4a">PDF</text>
+  </g>
+  <g transform="translate(112 265)">
+    <path d="M0 18Q0 0 18 0H140L190 50V188Q190 206 172 206H18Q0 206 0 188Z" fill="url(#paper)"/>
+    <path d="M140 0V32Q140 50 158 50H190" fill="#c8d9f7"/>
+    <rect x="30" y="105" width="110" height="9" rx="4.5" fill="#a8bad8"/><rect x="30" y="128" width="95" height="9" rx="4.5" fill="#a8bad8"/><rect x="30" y="151" width="78" height="9" rx="4.5" fill="#a8bad8"/>
+    <path d="M70 40C58 40 51 49 51 61C51 73 62 82 78 82C96 82 108 69 108 57C108 45 98 38 88 38" fill="none" stroke="#e64a55" stroke-width="9" stroke-linecap="round"/>
+    <text x="95" y="96" font-family="Arial,sans-serif" font-size="15" font-weight="700" text-anchor="middle" fill="#d43c4a">PDF</text>
+  </g>
+  <g transform="translate(112 438)">
+    <path d="M0 18Q0 0 18 0H140L190 50V188Q190 206 172 206H18Q0 206 0 188Z" fill="url(#paper)"/>
+    <path d="M140 0V32Q140 50 158 50H190" fill="#c8d9f7"/>
+    <rect x="30" y="105" width="110" height="9" rx="4.5" fill="#a8bad8"/><rect x="30" y="128" width="95" height="9" rx="4.5" fill="#a8bad8"/><rect x="30" y="151" width="78" height="9" rx="4.5" fill="#a8bad8"/>
+    <path d="M70 40C58 40 51 49 51 61C51 73 62 82 78 82C96 82 108 69 108 57C108 45 98 38 88 38" fill="none" stroke="#e64a55" stroke-width="9" stroke-linecap="round"/>
+    <text x="95" y="96" font-family="Arial,sans-serif" font-size="15" font-weight="700" text-anchor="middle" fill="#d43c4a">PDF</text>
+  </g>
+</g>
+<g fill="none" stroke="url(#blue)" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
+  <path d="M330 192C405 192 420 220 470 280L515 326"/>
+  <path d="M330 368H510"/>
+  <path d="M330 545C405 545 420 515 470 455L515 410"/>
+</g>
+<path d="M485 306L545 368L485 430L500 382H555V354H500Z" fill="url(#gold)" filter="url(#glow)"/>
+<g filter="url(#shadow)">
+  <g transform="translate(760 135)">
+    <path d="M35 18Q35 0 53 0H250L300 50V350Q300 368 282 368H53Q35 368 35 350Z" fill="#9eb8e7" opacity=".55"/>
+    <path d="M18 18Q18 0 36 0H233L283 50V350Q283 368 265 368H36Q18 368 18 350Z" fill="#c4d7fb" opacity=".8"/>
+    <path d="M0 18Q0 0 18 0H215L265 50V350Q265 368 247 368H18Q0 368 0 350Z" fill="url(#paper)"/>
+    <path d="M215 0V32Q215 50 233 50H265" fill="#c8d9f7"/>
+    <path d="M95 88C73 88 61 103 61 124C61 146 81 162 108 162C139 162 160 139 160 116C160 95 142 83 125 83" fill="none" stroke="#e64a55" stroke-width="15" stroke-linecap="round"/>
+    <text x="132" y="191" font-family="Arial,sans-serif" font-size="24" font-weight="700" text-anchor="middle" fill="#d43c4a">PDF</text>
+    <rect x="48" y="231" width="165" height="11" rx="5.5" fill="#9fb4d8"/><rect x="48" y="260" width="165" height="11" rx="5.5" fill="#9fb4d8"/><rect x="48" y="289" width="118" height="11" rx="5.5" fill="#9fb4d8"/>
+  </g>
+</g>
+<circle cx="1025" cy="500" r="48" fill="#27c76f" stroke="#8af1b5" stroke-width="4" filter="url(#glow)"/>
+<path d="M1003 500L1018 515L1048 482" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="600" y="635" font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="#dceaff" text-anchor="middle" letter-spacing="2">MERGE PDF FILES INTO ONE DOCUMENT</text>
+</svg>
