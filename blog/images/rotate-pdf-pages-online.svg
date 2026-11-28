@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+<title id="title">Rotate PDF pages illustration</title>
+<desc id="desc">A sideways document rotates upright with a curved blue arrow on a dark navy background.</desc>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b1730"/><stop offset="1" stop-color="#102b57"/></linearGradient>
+  <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#2563eb"/></linearGradient>
+  <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dce8fb"/></linearGradient>
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%"><feGaussianBlur stdDeviation="16"/></filter>
+</defs>
+<rect width="1200" height="630" rx="28" fill="url(#bg)"/>
+<circle cx="600" cy="315" r="255" fill="#12366d" opacity=".22"/>
+<ellipse cx="325" cy="505" rx="220" ry="34" fill="#020817" opacity=".45" filter="url(#shadow)"/>
+<ellipse cx="910" cy="520" rx="170" ry="28" fill="#020817" opacity=".45" filter="url(#shadow)"/>
+<g transform="translate(320 315) rotate(-90)">
+  <rect x="-120" y="-165" width="240" height="330" rx="18" fill="#a9c6ee" opacity=".32" transform="translate(16 14)"/>
+  <rect x="-120" y="-165" width="240" height="330" rx="18" fill="url(#paper)" stroke="#b9cce8" stroke-width="3"/>
+  <rect x="-82" y="-115" width="164" height="100" rx="10" fill="#70b7f7"/>
+  <path d="M-82 -30 L-30 -78 L10 -42 L48 -92 L82 -55 L82 -15 L-82 -15Z" fill="#2563eb" opacity=".85"/>
+  <circle cx="48" cy="-82" r="10" fill="#eaf5ff"/>
+  <rect x="-82" y="18" width="164" height="12" rx="6" fill="#9aacc9"/>
+  <rect x="-82" y="48" width="145" height="12" rx="6" fill="#9aacc9"/>
+  <rect x="-82" y="78" width="156" height="12" rx="6" fill="#9aacc9"/>
+  <rect x="-82" y="108" width="112" height="12" rx="6" fill="#9aacc9"/>
+</g>
+<path d="M475 185 C545 90 690 82 770 166" fill="none" stroke="url(#blue)" stroke-width="24" stroke-linecap="round"/>
+<path d="M739 125 L787 172 L721 187" fill="none" stroke="#38bdf8" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+<g transform="translate(900 325)">
+  <rect x="-130" y="-178" width="260" height="356" rx="18" fill="#9bb9e7" opacity=".28" transform="translate(14 15)"/>
+  <rect x="-130" y="-178" width="260" height="356" rx="18" fill="url(#paper)" stroke="#c4d6ef" stroke-width="3"/>
+  <rect x="-88" y="-130" width="176" height="112" rx="10" fill="#70b7f7"/>
+  <path d="M-88 -28 L-35 -84 L8 -44 L48 -95 L88 -51 L88 -18 L-88 -18Z" fill="#2563eb" opacity=".88"/>
+  <circle cx="52" cy="-99" r="11" fill="#eaf5ff"/>
+  <rect x="-88" y="14" width="176" height="13" rx="6.5" fill="#91a7c8"/>
+  <rect x="-88" y="48" width="160" height="13" rx="6.5" fill="#91a7c8"/>
+  <rect x="-88" y="82" width="176" height="13" rx="6.5" fill="#91a7c8"/>
+  <rect x="-88" y="116" width="126" height="13" rx="6.5" fill="#91a7c8"/>
+</g>
+<path d="M215 550 H990" stroke="#5e8bc9" stroke-width="2" opacity=".2"/>
+<circle cx="178" cy="130" r="6" fill="#38bdf8" opacity=".8"/><circle cx="1030" cy="120" r="8" fill="#60a5fa" opacity=".75"/><circle cx="1060" cy="150" r="4" fill="#38bdf8" opacity=".7"/>
+</svg>
